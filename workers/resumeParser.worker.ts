@@ -1,57 +1,76 @@
 import { Job, Worker } from "bullmq";
-import type { Prisma } from "@prisma/client";
+import { ProcessingStatus } from "@prisma/client";
 
-import { extractResumeJson } from "@/lib/groq/operations";
+import { runAnalysis } from "@/lib/groq/operations"; // Assuming this is where your LLM logic lives
 import { JOB_NAMES, QUEUE_NAMES } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getBullConnectionOptions } from "@/lib/redis/client";
-import type { ResumeParseJob } from "@/types/domain";
+import type { AnalysisJob } from "@/types/domain";
 
-function getExtractedText(fileData: string): string {
-  try {
-    const parsed = JSON.parse(fileData) as { extractedText?: string };
-    return parsed.extractedText ?? "";
-  } catch {
-    return "";
-  }
-}
+export const analysisWorker = new Worker<AnalysisJob, void, typeof JOB_NAMES.analysis>(
+  QUEUE_NAMES.analysis,
+  async (job: Job<AnalysisJob, void, typeof JOB_NAMES.analysis>) => {
+    // 1. Guard clause for job type
+    if (job.name !== JOB_NAMES.analysis) return;
 
-export const resumeParserWorker = new Worker<ResumeParseJob, void, typeof JOB_NAMES.resumeParse>(
-  QUEUE_NAMES.resumeParse,
-  async (job: Job<ResumeParseJob, void, typeof JOB_NAMES.resumeParse>) => {
-    if (job.name !== JOB_NAMES.resumeParse) return;
+    const { analysisId } = job.data;
 
-    const resume = await prisma.resume.findUnique({ where: { id: job.data.resumeId } });
-    if (!resume) return;
+    // 2. Fetch analysis with its relations
+    const analysis = await prisma.analysis.findUnique({
+      where: { id: analysisId },
+      include: {
+        resume: true,
+        jobDescription: true,
+      },
+    });
 
-    await prisma.resume.update({
-      where: { id: resume.id },
-      data: { parseStatus: "PROCESSING" },
+    if (!analysis || !analysis.resume || !analysis.jobDescription) {
+      console.error(`[AnalysisWorker] Missing data for analysis ${analysisId}`);
+      return;
+    }
+
+    // 3. Set status to PROCESSING
+    await prisma.analysis.update({
+      where: { id: analysisId },
+      data: { status: ProcessingStatus.PROCESSING },
     });
 
     try {
-      const extractedText = getExtractedText(resume.fileData);
-      const parsedJson = await extractResumeJson(extractedText);
+      // 4. Run the AI Analysis
+      // We pass the parsed resume JSON and the job content to the LLM
+      const result = await runAnalysis({
+        resumeData: analysis.resume.parsedJson,
+        jobContent: analysis.jobDescription.content,
+      });
 
-      await prisma.resume.update({
-        where: { id: resume.id },
+      // 5. Update database with results
+      await prisma.analysis.update({
+        where: { id: analysisId },
         data: {
-          parsedJson: parsedJson as unknown as Prisma.InputJsonValue,
-          parseStatus: "COMPLETED",
+          score: result.score,
+          missingKeywords: result.missingKeywords,
+          suggestions: result.suggestions,
+          status: ProcessingStatus.COMPLETED,
         },
       });
+
+      console.log(`[AnalysisWorker] Completed analysis ${analysisId}`);
     } catch (error) {
-      await prisma.resume.update({
-        where: { id: resume.id },
-        data: {
-          parseStatus: "FAILED",
-        },
+      console.error(`[AnalysisWorker] Failed analysis ${analysisId}:`, error);
+
+      // 6. Update status to FAILED on error
+      await prisma.analysis.update({
+        where: { id: analysisId },
+        data: { status: ProcessingStatus.FAILED },
       });
 
+      // Throw so BullMQ can handle retries if configured
       throw error;
     }
   },
   {
     connection: getBullConnectionOptions(),
-  },
+    // Concurrency limits how many analyses run at once on this worker
+    concurrency: 5, 
+  }
 );

@@ -1,6 +1,50 @@
 import { groqClient } from "@/lib/groq/client";
 import { buildSuggestionPrompt, jdKeywordPrompt, resumeParsePrompt } from "@/lib/groq/prompts";
-import type { ExtractedKeywords, ParsedResume } from "@/types/domain";
+import type { AnalysisResult, ExtractedKeywords, ParsedResume } from "@/types/domain";
+import type { JsonValue } from "@prisma/client/runtime/library";
+
+/**
+ * Orchestrates a full resume-vs-JD analysis:
+ * 1. Extracts required keywords from the job description.
+ * 2. Determines which keywords are absent from the resume JSON.
+ * 3. Generates actionable improvement suggestions.
+ * 4. Returns a 0–100 match score.
+ */
+export async function runAnalysis({
+  resumeData,
+  jobContent,
+}: {
+  resumeData: JsonValue;
+  jobContent: string;
+}): Promise<AnalysisResult> {
+  // Stringify the parsed resume so we can do keyword matching
+  const resumeText = typeof resumeData === "string"
+    ? resumeData
+    : JSON.stringify(resumeData);
+
+  // 1. Pull required keywords from the JD
+  const { keywords: allKeywords = [] } = await extractKeywordsFromJd(jobContent);
+
+  // 2. Find missing keywords (case-insensitive)
+  const lowerResume = resumeText.toLowerCase();
+  const missingKeywords = allKeywords.filter(
+    (kw) => !lowerResume.includes(kw.toLowerCase()),
+  );
+
+  // 3. Score = percentage of keywords that ARE present
+  const matchedCount = allKeywords.length - missingKeywords.length;
+  const score = allKeywords.length > 0
+    ? Math.round((matchedCount / allKeywords.length) * 100)
+    : 100;
+
+  // 4. Generate suggestions for the missing ones
+  const suggestions = missingKeywords.length > 0
+    ? await generateSuggestions(missingKeywords, resumeText)
+    : [];
+
+  return { score, missingKeywords, suggestions };
+}
+
 
 function extractJson<T>(content: string): T {
   // Try to extract a JSON object
