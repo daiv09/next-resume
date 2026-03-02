@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  RECRUITER
+}
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Resume {
+  id          String           @id @default(cuid())
+  fileName    String
+  fileData    String           @db.Text
+  parsedJson  Json?
+  parseStatus ProcessingStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  analyses    Analysis[]
+
+  @@index([createdAt])
+}
+
+model JobDescription {
+  id                String     @id @default(cuid())
+  content           String     @db.Text
+  extractedKeywords Json?
+  createdAt         DateTime   @default(now())
+  analyses          Analysis[]
+
+  @@index([createdAt])
+}
+
+model Analysis {
+  id               String           @id @default(cuid())
+  resumeId         String
+  jobDescriptionId String
+  score            Float?
+  missingKeywords  Json?
+  suggestions      Json?
+  status           ProcessingStatus @default(PENDING)
+  createdAt        DateTime         @default(now())
+  resume           Resume           @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  jobDescription   JobDescription   @relation(fields: [jobDescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([createdAt])
+}

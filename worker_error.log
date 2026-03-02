@@ -1,0 +1,18 @@
+C:\Users\divya\OneDrive\Desktop\Coding\apt-resume\node_modules\groq-sdk\src\index.ts:132
+      throw new Errors.GroqError(
+            ^
+
+
+GroqError: The GROQ_API_KEY environment variable is missing or empty; either provide it, or instantiate the Groq client with an apiKey option, like new Groq({ apiKey: 'My API Key' }).
+    at new Groq (C:\Users\divya\OneDrive\Desktop\Coding\apt-resume\node_modules\groq-sdk\src\index.ts:132:13)
+    at Groq (C:\Users\divya\OneDrive\Desktop\Coding\apt-resume\lib\groq\client.ts:3:27)
+    at Object.<anonymous> (C:\Users\divya\OneDrive\Desktop\Coding\apt-resume\lib\groq\client.ts:5:2)
+    at Module._compile (node:internal/modules/cjs/loader:1554:14)
+    at Object.transformer (C:\Users\divya\OneDrive\Desktop\Coding\apt-resume\node_modules\tsx\dist\register-D46fvsV_.cjs:3:1104)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+
+Node.js v22.14.0

@@ -1,26 +1,91 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: var(--font-geist-sans), "Inter", "var(--tailwind-default-font-family)";
+  --font-mono: var(--font-geist-mono), "var(--tailwind-default-font-family)";
+
+  --color-background: #080808;
+  --color-foreground: #f5f5f5;
+  --color-primary: #ffffff;
+  --color-primary-hover: #d4d4d4;
+  --color-surface: #141414;
+  --color-surface-hover: #1e1e1e;
+  --color-border: #2a2a2a;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #080808;
+  --foreground: #f5f5f5;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer utilities {
+  .glass-card {
+    background: rgba(20, 20, 20, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: 0 4px 40px rgba(0, 0, 0, 0.4);
+  }
+  
+  .gradient-text {
+    background: linear-gradient(135deg, #ffffff 0%, #a3a3a3 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .glow-button {
+    background: #ffffff;
+    color: #080808;
+    position: relative;
+    z-index: 1;
+  }
+  
+  .glow-button::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: -1;
+    background: #ffffff;
+    filter: blur(12px);
+    opacity: 0.25;
+    transition: opacity 0.3s ease-in-out;
+    border-radius: inherit;
+  }
+
+  .glow-button:hover::before {
+    opacity: 0.5;
+    filter: blur(16px);
+  }
+
+  .animate-blob {
+    animation: blob 10s infinite;
+  }
+  
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+
+  @keyframes blob {
+    0% { transform: translate(0px, 0px) scale(1); }
+    33% { transform: translate(30px, -50px) scale(1.1); }
+    66% { transform: translate(-20px, 20px) scale(0.9); }
+    100% { transform: translate(0px, 0px) scale(1); }
+  }
 }
